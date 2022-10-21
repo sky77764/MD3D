@@ -1,4 +1,0 @@
-[submodule "OpenPCDet"]
-	path = OpenPCDet
-	url = https://github.com/open-mmlab/OpenPCDet
-	branch = master
