@@ -1,0 +1,108 @@
+CLASS_NAMES: ['Car', 'Pedestrian', 'Cyclist']
+
+DATA_CONFIG:
+    _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
+
+
+MODEL:
+    NAME: SECONDNet
+
+    VFE:
+        NAME: MeanVFE
+
+    BACKBONE_3D:
+        NAME: VoxelBackBone32x
+
+    MAP_TO_BEV:
+        NAME: HeightCompression
+        NUM_BEV_FEATURES: 256
+
+    BACKBONE_2D:
+        NAME: BaseBEVBackbone
+
+        LAYER_NUMS: [5, 5]
+        LAYER_STRIDES: [1, 2]
+        NUM_FILTERS: [128, 256]
+        UPSAMPLE_STRIDES: [1, 2]
+        NUM_UPSAMPLE_FILTERS: [256, 256]
+
+    DENSE_HEAD:
+        NAME: BEVMixtureDensityHead
+        CLASS_AGNOSTIC: False
+        FEATURE_SCALES: [ 0.03125 ]
+
+        ### BOX ENC & DEC PARAMS ###
+        # REG PARAM
+        XY_COORD_SCALE_FACTOR: 1
+        USE_SINCOS_DIR: False
+        LIDAR_COORD_REG: False
+        REG_BIAS: False
+
+        # BOX ENCODING METHOD
+        USE_CORNER_REG: True        # two corners, w
+        USE_FRONT_CENTER_REG: False       # center(x, y, z), front center (x', y'), w, h
+        #############################
+
+        # MIXTURE DENSITY FUNCTION PARAM
+        MULTIVARIATE: False
+        MULTIVARIATE_SPLIT_CH: [ 7 ]  # xyzlwhsc
+
+        MIXTURE_COMPONENT_MULT: 1
+        SHARED_PI_PROB: False
+
+        # CLASSIFICATION
+        SIGMOID_PROB: True
+        REMOVE_CLS_BRANCH: False
+        FUSE_PI_W_PROB: False
+        FUSE_ALPHA: 0.0
+
+        # LOSS PARAM
+        LOSS_CONFIG:
+            LOSS_FUNC_ARGS: {
+                'lw_dict': { 'mog_nll': 1.0, 'mod_nll': 500.0, 'aux_corners_mog_nll': 0.0, 'topk_reg': 0.0 },
+                'mod_pi_thresh': 0.0001, 'fcos_like_cls': False, 'origin_cls_step': 10000, 'centerpoint_cls': False,
+                'mog_pi_thresh': None, 'mog_topk_comp': 0, 'coord_pdf': 'gaussian',
+                'value_return': False, 'matched_threshold': None, 'unmatched_threshold': None,
+                'iou_based_cls_target': False
+            }
+
+        INFER_PI_THRESH: 0.001
+        INFER_REMOVE_BG: False
+        INFER_GET_LOCAL_PEAK: False
+        INFER_PI_FUSE_ALPHA: 0.0
+
+    POST_PROCESSING:
+        RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
+        SCORE_THRESH: 0.1
+        OUTPUT_RAW_SCORE: False
+
+        EVAL_METRIC: kitti
+
+        NMS_CONFIG:
+            MULTI_CLASSES_NMS: False
+            NMS_TYPE: nms_gpu
+            NMS_THRESH: 0.01
+            NMS_PRE_MAXSIZE: 4096
+            NMS_POST_MAXSIZE: 500
+
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 4
+    NUM_EPOCHS: 80
+
+    OPTIMIZER: adam_onecycle
+    LR: 0.003
+    WEIGHT_DECAY: 0.01
+    MOMENTUM: 0.9
+
+    MOMS: [0.95, 0.85]
+    PCT_START: 0.4
+    DIV_FACTOR: 10
+    DECAY_STEP_LIST: [35, 45]
+    LR_DECAY: 0.1
+    LR_CLIP: 0.0000001
+
+    LR_WARMUP: False
+    WARMUP_EPOCH: 1
+
+    GRAD_NORM_CLIP: 10

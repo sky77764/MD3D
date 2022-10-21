@@ -384,3 +384,83 @@ def pairwise_iou(boxes1, boxes2) -> torch.Tensor:
         torch.zeros(1, dtype=inter.dtype, device=inter.device),
     )
     return iou
+
+
+def calculate_box_direction(flt_xy, l, w):
+    dir_flt = torch.atan2(flt_xy[..., 1], flt_xy[..., 0])
+    dir_box = dir_flt - torch.atan2(w, l)
+    return dir_box
+
+
+def encode_boxes_to_fltbrbw(batch_box, return_aux_corners=False):
+    batch_size = batch_box.shape[0]
+    corners = boxes_to_corners_3d(batch_box.reshape([-1, 7]))
+    corner_flt = corners[:, 4, :].reshape([batch_size, -1, 3])
+    corner_brb = corners[:, 2, :].reshape([batch_size, -1, 3])
+    box_w = batch_box[..., 4:5]
+    fltbrbw = torch.cat((corner_flt, corner_brb, box_w), dim=-1)
+
+    corner_frt = corners[:, 5, :].reshape([batch_size, -1, 3])
+    corner_blb = corners[:, 3, :].reshape([batch_size, -1, 3])
+    box_l = batch_box[..., 3:4]
+    frtblbl = torch.cat((corner_frt, corner_blb, box_l), dim=-1)
+
+    if return_aux_corners:
+        return fltbrbw, frtblbl #corners.reshape([batch_size, -1, 24])
+    else:
+        return fltbrbw, None
+
+def decode_fltbrbw_to_boxes(batch_corners_w_w):
+    corner_flt = batch_corners_w_w[..., :3]
+    corner_brb = batch_corners_w_w[..., 3:6]
+    box_w = torch.clamp(batch_corners_w_w[..., 6], min=0.0)
+
+    box_center = (corner_flt + corner_brb) / 2.0
+    diag_dist = torch.sqrt((corner_flt[..., 0] - corner_brb[..., 0]) ** 2 + (corner_flt[..., 1] - corner_brb[..., 1]) ** 2)
+    illegal_mask = box_w > diag_dist
+    box_w[illegal_mask] = diag_dist[illegal_mask]
+    box_l = torch.sqrt(diag_dist ** 2 - box_w ** 2)
+    box_h = torch.clamp((corner_flt[..., -1] - corner_brb[..., -1]), min=0.0)
+    box_dir = calculate_box_direction(corner_flt[..., :2] - box_center[..., :2], box_l, box_w)
+
+    boxes = torch.cat((box_center, box_l.unsqueeze(-1), box_w.unsqueeze(-1), box_h.unsqueeze(-1),
+                       box_dir.unsqueeze(-1)), dim=-1)
+
+    ########## DEBUG ###############
+    # corners_w_w_test = batch_corners_w_w.detach().cpu().numpy()
+    # boxes_test = boxes.detach().cpu().numpy()
+    ########## DEBUG ###############
+    return boxes
+
+
+def encode_boxes_to_cfcwh(batch_box, return_all_corners=False):
+    batch_size = batch_box.shape[0]
+    corners = boxes_to_corners_3d(batch_box.reshape([-1, 7]))
+    corner_flt = corners[:, 4, :].reshape([batch_size, -1, 3])
+    corner_frb = corners[:, 1, :].reshape([batch_size, -1, 3])
+    front_center = (corner_flt + corner_frb) / 2.0
+    box_wh = batch_box[..., 4:6]
+
+    cfcwh = torch.cat((batch_box[..., :3], front_center[..., :2], box_wh), dim=-1)
+    if return_all_corners:
+        return cfcwh, corners.reshape([batch_size, -1, 24])
+    else:
+        return cfcwh, None
+
+def decode_cfcwh_to_boxes(batch_cfcwh):
+    center_xyz = batch_cfcwh[..., :3]
+    fcenter_xy = batch_cfcwh[..., 3:5]
+    box_wh = batch_cfcwh[..., 5:]
+
+    xy_diff = fcenter_xy - center_xyz[..., :2]
+    box_dir = torch.atan2(xy_diff[..., 1:2], xy_diff[..., 0:1])
+    box_l = torch.sqrt(xy_diff[..., 0:1] ** 2 + xy_diff[..., 1:2] ** 2) * 2.0
+
+    boxes = torch.cat((center_xyz, box_l, box_wh, box_dir), dim=-1)
+
+    ########## DEBUG ###############
+    # batch_cfcwh_test = batch_cfcwh.detach().cpu().numpy()
+    # boxes_test = boxes.detach().cpu().numpy()
+    # exit()
+    ########## DEBUG ###############
+    return boxes
