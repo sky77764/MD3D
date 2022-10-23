@@ -17,16 +17,16 @@ This is the official implementation of [MD3D: Mixture-Density-based 3D Object De
 ## Citation
 If you find this code useful in your research, please consider citing our work:
 ```
-  @article{choi2022md3d,
-      author={Choi, Jaeseok and Song, Yeji and Kim, Yerim and Yoo, Jaeyoung and Kwak, Nojun},
-      journal={IEEE Access}, 
-      title={MD3D: Mixture-Density-Based 3D Object Detection in Point Clouds}, 
-      year={2022},
-      volume={10},
-      number={},
-      pages={104011-104022},
-      doi={10.1109/ACCESS.2022.3210108}
-  }
+@article{choi2022md3d,
+  author={Choi, Jaeseok and Song, Yeji and Kim, Yerim and Yoo, Jaeyoung and Kwak, Nojun},
+  journal={IEEE Access}, 
+  title={MD3D: Mixture-Density-Based 3D Object Detection in Point Clouds}, 
+  year={2022},
+  volume={10},
+  number={},
+  pages={104011-104022},
+  doi={10.1109/ACCESS.2022.3210108}
+}
 ```
 
 ## Acknowledgement
